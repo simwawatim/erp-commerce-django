@@ -7,12 +7,38 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'first_name', 'last_name', 'email']
 
+from rest_framework import serializers
+from django.contrib.auth.models import User
+from .models import Employee
+from rest_framework.validators import UniqueValidator
+
+
+class UserSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all(), message="Username already exists")]
+    )
+    email = serializers.EmailField(
+        required=True,
+        validators=[UniqueValidator(queryset=User.objects.all(), message="Email already exists")]
+    )
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name']
+
+
 class EmployeeSerializer(serializers.ModelSerializer):
     user = UserSerializer()
 
     class Meta:
         model = Employee
         fields = ['id', 'user', 'role', 'hourly_rate']
+
+    def validate_hourly_rate(self, value):
+        if float(value) < 0:
+            raise serializers.ValidationError("Hourly rate must be a positive number.")
+        return value
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')
@@ -32,6 +58,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
     
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
