@@ -1,8 +1,8 @@
 from django.urls import path
 from base import views
-from api.views import EmployeeDetailView, EmployeeListCreateView, LoginView, PayrollDetailView, PayrollListCreateView, ProductDetailView, ProductListCreateView
+from api.views import LoginView, PayrollDetailView, PayrollListCreateView, ProductDetailView, ProductListCreateView
 from .views import (
-    CustomerListCreateView, CustomerDetailView,
+    CustomerListCreateView, CustomerDetailView,  EmployeeListCreateView, EmployeeDetailView,
     SalesOrderListCreateView, SalesOrderDetailView,
     InventoryTransactionListCreateView, InventoryTransactionDetailView,
     FinancialTransactionListCreateView, FinancialTransactionDetailView,

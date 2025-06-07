@@ -9,9 +9,25 @@ from django.dispatch import receiver
 
 class Product(models.Model):
     name = models.CharField(max_length=100)
-    sku = models.CharField(max_length=50, unique=True)
-    quantity_on_hand = models.IntegerField()
-    cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    description = models.TextField(blank=True, null=True)
+    quantity_on_hand = models.IntegerField(blank=True, null=True)
+    cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    is_available = models.BooleanField(default=True, blank=True, null=True)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True, blank=True, null=True)
+    created_by = models.ForeignKey(
+        'auth.User', 
+        related_name='created_products',
+        on_delete=models.SET_NULL,
+        null=True
+    )
+    updated_by = models.ForeignKey(
+        'auth.User', 
+        related_name='updated_products',
+        on_delete=models.SET_NULL,
+        null=True
+    )
 
     def __str__(self):
         return self.name
@@ -48,20 +64,17 @@ class Employee(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    hourly_rate = models.DecimalField(max_digits=6, decimal_places=2)
+    hourly_rate = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
 
-@receiver(post_save, sender=User)
-def create_employee_profile(sender, instance, created, **kwargs):
-    if created:
-        Employee.objects.create(user=instance, role='SALES', hourly_rate=0)
-
-@receiver(post_save, sender=User)
-def save_employee_profile(sender, instance, **kwargs):
-    if hasattr(instance, 'employee'):
-        instance.employee.save()
+    # @receiver(post_save, sender=User)
+    # def manage_employee_profile(sender, instance, created, **kwargs):
+    #     if created:
+    #         Employee.objects.create(user=instance, role='SALES', hourly_rate=0)
+    #     elif hasattr(instance, 'employee'):
+    #         instance.employee.save()
 
 class Payroll(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)

@@ -11,6 +11,7 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from base.models import Employee
 from django.db import transaction
+from rest_framework import generics
 
 
 # -------------------------------
@@ -36,14 +37,10 @@ class LoginView(APIView):
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     
 
-# -------------------------------
-# Employee Management
-# -------------------------------
-
 
 class EmployeeListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
+    authentication_classes = [] 
+    permission_classes = [AllowAny]  
     def get(self, request):
         employees = Employee.objects.all()
         serializer = EmployeeSerializer(employees, many=True)
@@ -57,50 +54,39 @@ class EmployeeListCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
 class EmployeeDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [] 
+    permission_classes = [AllowAny]  
+    def get_object(self, pk):
+        return get_object_or_404(Employee, pk=pk)
 
     def get(self, request, pk):
-        employee = get_object_or_404(Employee, pk=pk)
+        employee = self.get_object(pk)
         serializer = EmployeeSerializer(employee)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data)
 
     def put(self, request, pk):
-        employee = get_object_or_404(Employee, pk=pk)
+        employee = self.get_object(pk)
         serializer = EmployeeSerializer(employee, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({
-                "message": "Employee updated successfully.",
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
-        return Response({
-            "error": "Validation failed.",
-            "details": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def patch(self, request, pk):
-        employee = get_object_or_404(Employee, pk=pk)
+        employee = self.get_object(pk)
         serializer = EmployeeSerializer(employee, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response({
-                "message": "Employee partially updated.",
-                "data": serializer.data
-            }, status=status.HTTP_200_OK)
-        return Response({
-            "error": "Validation failed.",
-            "details": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        employee = get_object_or_404(Employee, pk=pk)
+        employee = self.get_object(pk)
         employee.delete()
-        return Response({"message": "Employee deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-    
+
 # -------------------------------
 
 
@@ -109,7 +95,7 @@ class EmployeeDetailView(APIView):
 # -------------------------------
 
 class ProductListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         products = Product.objects.all()
@@ -125,7 +111,7 @@ class ProductListCreateView(APIView):
 
 
 class ProductDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
