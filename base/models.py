@@ -10,7 +10,7 @@ from django.dispatch import receiver
 class Product(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
-    quantity_on_hand = models.IntegerField(blank=True, null=True)
+    quantity = models.IntegerField(blank=True, null=True)
     cost_per_unit = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     is_available = models.BooleanField(default=True, blank=True, null=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True)
