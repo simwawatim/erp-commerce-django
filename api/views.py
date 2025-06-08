@@ -13,6 +13,7 @@ from django.contrib.auth.models import User
 from base.models import Employee
 from django.db import transaction
 from rest_framework import generics
+from django.db.models import Sum
 
 
 # -------------------------------
@@ -329,15 +330,10 @@ class SalesOrderAPIView(APIView):
 
             if product.quantity < quantity:
                 return Response({"error": "Not enough stock"}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Update product quantity
             product.quantity -= quantity
             product.save()
-
-            # Save the sales order
             order = serializer.save()
 
-            # Create financial transaction
             FinancialTransaction.objects.create(
                 description=f"Sale: {product.name} x {quantity}",
                 amount=quantity * serializer.validated_data['price'],
@@ -393,3 +389,33 @@ class FinancialTransactionDetail(APIView):
         transaction = self.get_object(pk)
         transaction.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RevenueAPIView(APIView):
+    def get(self, request):
+        revenue = FinancialTransaction.objects.filter(module__iexact='sales').aggregate(
+            total_revenue=Sum('amount')
+        )['total_revenue'] or 0
+        return Response({"revenue": revenue}, status=status.HTTP_200_OK)
+
+
+class ExpenseAPIView(APIView):
+    def get(self, request):
+        expense = FinancialTransaction.objects.exclude(module__iexact='sales').aggregate(
+            total_expense=Sum('amount')
+        )['total_expense'] or 0
+        return Response({"expenses": expense}, status=status.HTTP_200_OK)
+
+
+class ProfitAPIView(APIView):
+    def get(self, request):
+        revenue = FinancialTransaction.objects.filter(module__iexact='sales').aggregate(
+            total_revenue=Sum('amount')
+        )['total_revenue'] or 0
+
+        expenses = FinancialTransaction.objects.exclude(module__iexact='sales').aggregate(
+            total_expense=Sum('amount')
+        )['total_expense'] or 0
+
+        profit = revenue - expenses
+        return Response({"profit": profit}, status=status.HTTP_200_OK)
