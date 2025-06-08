@@ -3,25 +3,40 @@ from rest_framework.validators import UniqueValidator
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-
 class UserSerializer(serializers.ModelSerializer):
-    full_name = serializers.SerializerMethodField()
-
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'full_name']
-
-    def get_full_name(self, obj):
-        return obj.get_full_name()
-
+        fields = ['username', 'first_name', 'last_name', 'email']
 
 class EmployeeSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = UserSerializer()
 
     class Meta:
         model = Employee
         fields = ['id', 'user', 'role', 'hourly_rate']
 
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        user = User.objects.create(**user_data)
+        employee = Employee.objects.create(user=user, **validated_data)
+        return employee
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', None)
+        if user_data:
+            user_serializer = UserSerializer(instance.user, data=user_data)
+            if user_serializer.is_valid(raise_exception=True):
+                user_serializer.save()
+        instance.role = validated_data.get('role', instance.role)
+        instance.hourly_rate = validated_data.get('hourly_rate', instance.hourly_rate)
+        instance.save()
+        return instance
+    
+
+class GetProductByNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['name']
     
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
@@ -75,3 +90,4 @@ class FinancialTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = FinancialTransaction
         fields = '__all__'
+

@@ -1,5 +1,5 @@
 from base.models import Customer, SalesOrder, Product, InventoryTransaction, FinancialTransaction, Employee, Payroll, Product
-from api.serializers.serializers import CustomerSerializer, EmployeeSerializer, FinancialTransactionSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderSerializer
+from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderSerializer, UserSerializer,  GetProductByNameSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
@@ -37,26 +37,54 @@ class LoginView(APIView):
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     
 
-
 class EmployeeListCreateView(APIView):
-    authentication_classes = [] 
-    permission_classes = [AllowAny]  
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
     def get(self, request):
-        employees = Employee.objects.all()
+        employees = Employee.objects.select_related('user').all()
         serializer = EmployeeSerializer(employees, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = EmployeeSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user_data = request.data.get('user')
+        role = request.data.get('role')
+        hourly_rate = request.data.get('hourly_rate')
+
+        # Validate user_data presence and type
+        if not user_data or not isinstance(user_data, dict):
+            return Response({'error': 'User data is required and must be a dictionary'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate all user fields are present and non-empty
+        required_user_fields = ['username', 'first_name', 'last_name', 'email']
+        for field in required_user_fields:
+            if not user_data.get(field):
+                return Response({'error': 'All user fields are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate role and hourly_rate
+        if not role:
+            return Response({'error': 'Role is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if hourly_rate is None:
+            return Response({'error': 'Hourly rate is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Serialize and create User
+        user_serializer = UserSerializer(data=user_data)
+        if user_serializer.is_valid():
+            user = user_serializer.save()
+            employee = Employee.objects.create(
+                user=user,
+                role=role,
+                hourly_rate=hourly_rate
+            )
+            return Response(EmployeeSerializer(employee).data, status=status.HTTP_201_CREATED)
+
+        return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class EmployeeDetailView(APIView):
-    authentication_classes = [] 
-    permission_classes = [AllowAny]  
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
     def get_object(self, pk):
         return get_object_or_404(Employee, pk=pk)
 
@@ -67,25 +95,66 @@ class EmployeeDetailView(APIView):
 
     def put(self, request, pk):
         employee = self.get_object(pk)
-        serializer = EmployeeSerializer(employee, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user_data = request.data.get('user')
+        role = request.data.get('role')
+        hourly_rate = request.data.get('hourly_rate')
+
+        # Validate user_data presence and type
+        if not user_data or not isinstance(user_data, dict):
+            return Response({'error': 'User data is required and must be a dictionary'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate all user fields present and non-empty
+        required_user_fields = ['username', 'first_name', 'last_name', 'email']
+        for field in required_user_fields:
+            if not user_data.get(field):
+                return Response({'error': 'All user fields are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate role and hourly_rate presence
+        if not role:
+            return Response({'error': 'Role is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if hourly_rate is None:
+            return Response({'error': 'Hourly rate is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update User
+        user_serializer = UserSerializer(employee.user, data=user_data)
+        if user_serializer.is_valid():
+            user_serializer.save()
+        else:
+            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update Employee
+        employee.role = role
+        employee.hourly_rate = hourly_rate
+        employee.save()
+
+        return Response(EmployeeSerializer(employee).data)
 
     def patch(self, request, pk):
         employee = self.get_object(pk)
-        serializer = EmployeeSerializer(employee, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user_data = request.data.get('user', {})
+        role = request.data.get('role', employee.role)
+        hourly_rate = request.data.get('hourly_rate', employee.hourly_rate)
+
+        # Update User (partial)
+        user_serializer = UserSerializer(employee.user, data=user_data, partial=True)
+        if user_serializer.is_valid():
+            user_serializer.save()
+        else:
+            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update Employee
+        employee.role = role
+        employee.hourly_rate = hourly_rate
+        employee.save()
+
+        return Response(EmployeeSerializer(employee).data)
 
     def delete(self, request, pk):
         employee = self.get_object(pk)
+        user = employee.user
         employee.delete()
+        user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
 
 # -------------------------------
 
@@ -243,61 +312,43 @@ class CustomerDetailView(APIView):
 # -------------------------------
 
 
-class SalesOrderListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
+class SalesOrderAPIView(APIView):
+    authentication_classes = [] 
+    permission_classes = [AllowAny]  
     def get(self, request):
         orders = SalesOrder.objects.all()
         serializer = SalesOrderSerializer(orders, many=True)
         return Response(serializer.data)
 
-    @transaction.atomic
     def post(self, request):
         serializer = SalesOrderSerializer(data=request.data)
         if serializer.is_valid():
-            sales_order = serializer.save()
+            product = serializer.validated_data['product']
+            quantity = serializer.validated_data['quantity']
 
-            items = request.data.get('items', [])
+            if product.quantity < quantity:
+                return Response({"error": "Not enough stock"}, status=status.HTTP_400_BAD_REQUEST)
 
-            for item in items:
-                product_id = item.get('product_id')
-                quantity = item.get('quantity')
-                product = get_object_or_404(Product, id=product_id)
+            # Update product quantity
+            product.quantity -= quantity
+            product.save()
 
-                # Check inventory
-                if product.stock < quantity:
-                    transaction.set_rollback(True)
-                    return Response(
-                        {"error": f"Insufficient stock for product '{product.name}'"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+            # Save the sales order
+            order = serializer.save()
 
-                # Deduct stock
-                product.stock -= quantity
-                product.save()
-
-                # Record inventory transaction
-                InventoryTransaction.objects.create(
-                    product=product,
-                    quantity=-quantity,
-                    type='shipment',
-                    related_order=sales_order
-                )
-
-            # Record financial transaction
+            # Create financial transaction
             FinancialTransaction.objects.create(
-                amount=sales_order.total_amount,
-                type='revenue',
-                related_order=sales_order
+                description=f"Sale: {product.name} x {quantity}",
+                amount=quantity * serializer.validated_data['price'],
+                module='Sales'
             )
 
-            return Response(SalesOrderSerializer(sales_order).data, status=status.HTTP_201_CREATED)
+            return Response(SalesOrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class SalesOrderDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
 
+class SalesOrderDetailAPIView(APIView):
     def get(self, request, pk):
         order = get_object_or_404(SalesOrder, pk=pk)
         serializer = SalesOrderSerializer(order)
@@ -311,106 +362,89 @@ class SalesOrderDetailView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def patch(self, request, pk):
-        order = get_object_or_404(SalesOrder, pk=pk)
-        serializer = SalesOrderSerializer(order, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
     def delete(self, request, pk):
         order = get_object_or_404(SalesOrder, pk=pk)
         order.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-class InventoryTransactionListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request):
-        transactions = InventoryTransaction.objects.all()
-        serializer = InventoryTransactionSerializer(transactions, many=True)
-        return Response(serializer.data)
+# class InventoryTransactionDetailView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request):
-        serializer = InventoryTransactionSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     def get(self, request, pk):
+#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
+#         serializer = InventoryTransactionSerializer(transaction)
+#         return Response(serializer.data)
 
-class InventoryTransactionDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+#     def put(self, request, pk):
+#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
+#         serializer = InventoryTransactionSerializer(transaction, data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request, pk):
-        transaction = get_object_or_404(InventoryTransaction, pk=pk)
-        serializer = InventoryTransactionSerializer(transaction)
-        return Response(serializer.data)
+#     def patch(self, request, pk):
+#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
+#         serializer = InventoryTransactionSerializer(transaction, data=request.data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request, pk):
-        transaction = get_object_or_404(InventoryTransaction, pk=pk)
-        serializer = InventoryTransactionSerializer(transaction, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     def delete(self, request, pk):
+#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
+#         transaction.delete()
+#         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    def patch(self, request, pk):
-        transaction = get_object_or_404(InventoryTransaction, pk=pk)
-        serializer = InventoryTransactionSerializer(transaction, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# class FinancialTransactionListCreateView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
 
-    def delete(self, request, pk):
-        transaction = get_object_or_404(InventoryTransaction, pk=pk)
-        transaction.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+#     def get(self, request):
+#         financials = FinancialTransaction.objects.all()
+#         serializer = FinancialTransactionSerializer(financials, many=True)
+#         return Response(serializer.data)
 
-class FinancialTransactionListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+#     def post(self, request):
+#         serializer = FinancialTransactionSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request):
-        financials = FinancialTransaction.objects.all()
-        serializer = FinancialTransactionSerializer(financials, many=True)
-        return Response(serializer.data)
+# class FinancialTransactionDetailView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request):
-        serializer = FinancialTransactionSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     def get(self, request, pk):
+#         financial = get_object_or_404(FinancialTransaction, pk=pk)
+#         serializer = FinancialTransactionSerializer(financial)
+#         return Response(serializer.data)
 
-class FinancialTransactionDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+#     def put(self, request, pk):
+#         financial = get_object_or_404(FinancialTransaction, pk=pk)
+#         serializer = FinancialTransactionSerializer(financial, data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request, pk):
-        financial = get_object_or_404(FinancialTransaction, pk=pk)
-        serializer = FinancialTransactionSerializer(financial)
-        return Response(serializer.data)
+#     def patch(self, request, pk):
+#         financial = get_object_or_404(FinancialTransaction, pk=pk)
+#         serializer = FinancialTransactionSerializer(financial, data=request.data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request, pk):
-        financial = get_object_or_404(FinancialTransaction, pk=pk)
-        serializer = FinancialTransactionSerializer(financial, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def patch(self, request, pk):
-        financial = get_object_or_404(FinancialTransaction, pk=pk)
-        serializer = FinancialTransactionSerializer(financial, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        financial = get_object_or_404(FinancialTransaction, pk=pk)
-        financial.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+#     def delete(self, request, pk):
+#         financial = get_object_or_404(FinancialTransaction, pk=pk)
+#         financial.delete()
+#         return Response(status=status.HTTP_204_NO_CONTENT)
 
   
 
+# class GetProductByNameView(APIView):
+#     def get(self, request):
+#         products = Product.objects.all()
+#         serializer =  GetProductByNameSerializer(products, many=True)
+#         return Response(serializer.data)
