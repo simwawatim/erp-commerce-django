@@ -2,7 +2,7 @@ from django.urls import path
 from base import views
 from api.views import LoginView, PayrollDetailView, PayrollListCreateView, ProductDetailView, ProductListCreateView
 from .views import (
-    CustomerListCreateView, CustomerDetailView,  EmployeeListCreateView, EmployeeDetailView, SalesOrderAPIView, SalesOrderDetailAPIView,
+    CustomerListCreateView, CustomerDetailView,  EmployeeListCreateView, EmployeeDetailView, FinancialTransactionDetail, FinancialTransactionList, SalesOrderAPIView, SalesOrderDetailAPIView,
 
 )
 
@@ -26,7 +26,9 @@ urlpatterns = [
 
 #    path('api/get-product-by-name/', GetProductByNameView.as_view()),
    path('api/sales-orders/', SalesOrderAPIView.as_view(), name='sales-orders'),
-   path('apisales-orders/<int:pk>/', SalesOrderDetailAPIView.as_view(), name='sales-order-detail'),
+   path('api/sales-orders/<int:pk>/', SalesOrderDetailAPIView.as_view(), name='sales-order-detail'),
+   path('api/financial-transactions/', FinancialTransactionList.as_view(), name='financialtransaction-list'),
+   path('api/financial-transactions/<int:pk>/', FinancialTransactionDetail.as_view(), name='financialtransaction-detail'),
 
    
 ]

@@ -1,3 +1,4 @@
+from django.http import Http404
 from base.models import Customer, SalesOrder, Product, InventoryTransaction, FinancialTransaction, Employee, Payroll, Product
 from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderSerializer, UserSerializer,  GetProductByNameSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -368,83 +369,27 @@ class SalesOrderDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# class InventoryTransactionDetailView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
 
-#     def get(self, request, pk):
-#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
-#         serializer = InventoryTransactionSerializer(transaction)
-#         return Response(serializer.data)
+class FinancialTransactionList(APIView):
+    def get(self, request):
+        transactions = FinancialTransaction.objects.all().order_by('-timestamp')
+        serializer = FinancialTransactionSerializer(transactions, many=True)
+        return Response(serializer.data)
 
-#     def put(self, request, pk):
-#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
-#         serializer = InventoryTransactionSerializer(transaction, data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-#     def patch(self, request, pk):
-#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
-#         serializer = InventoryTransactionSerializer(transaction, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class FinancialTransactionDetail(APIView):
+    def get_object(self, pk):
+        try:
+            return FinancialTransaction.objects.get(pk=pk)
+        except FinancialTransaction.DoesNotExist:
+            raise Http404
 
-#     def delete(self, request, pk):
-#         transaction = get_object_or_404(InventoryTransaction, pk=pk)
-#         transaction.delete()
-#         return Response(status=status.HTTP_204_NO_CONTENT)
+    def get(self, request, pk):
+        transaction = self.get_object(pk)
+        serializer = FinancialTransactionSerializer(transaction)
+        return Response(serializer.data)
 
-# class FinancialTransactionListCreateView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
-
-#     def get(self, request):
-#         financials = FinancialTransaction.objects.all()
-#         serializer = FinancialTransactionSerializer(financials, many=True)
-#         return Response(serializer.data)
-
-#     def post(self, request):
-#         serializer = FinancialTransactionSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# class FinancialTransactionDetailView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
-
-#     def get(self, request, pk):
-#         financial = get_object_or_404(FinancialTransaction, pk=pk)
-#         serializer = FinancialTransactionSerializer(financial)
-#         return Response(serializer.data)
-
-#     def put(self, request, pk):
-#         financial = get_object_or_404(FinancialTransaction, pk=pk)
-#         serializer = FinancialTransactionSerializer(financial, data=request.data)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def patch(self, request, pk):
-#         financial = get_object_or_404(FinancialTransaction, pk=pk)
-#         serializer = FinancialTransactionSerializer(financial, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def delete(self, request, pk):
-#         financial = get_object_or_404(FinancialTransaction, pk=pk)
-#         financial.delete()
-#         return Response(status=status.HTTP_204_NO_CONTENT)
-
-  
-
-# class GetProductByNameView(APIView):
-#     def get(self, request):
-#         products = Product.objects.all()
-#         serializer =  GetProductByNameSerializer(products, many=True)
-#         return Response(serializer.data)
+    def delete(self, request, pk):
+        transaction = self.get_object(pk)
+        transaction.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

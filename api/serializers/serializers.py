@@ -77,9 +77,22 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class SalesOrderSerializer(serializers.ModelSerializer):
+    product = ProductSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), source='product', write_only=True
+    )
+
+
     class Meta:
         model = SalesOrder
-        fields = '__all__'
+        fields = [
+            'id',
+            'product',      
+            'product_id',   
+            'quantity',
+            'price',
+            'date_ordered'
+        ]
 
 class InventoryTransactionSerializer(serializers.ModelSerializer):
     class Meta:
