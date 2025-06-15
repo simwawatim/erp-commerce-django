@@ -217,7 +217,7 @@ class ProductDetailView(APIView):
 # -------------------------------
 
 class PayrollListCreateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         payrolls = Payroll.objects.all()
@@ -233,7 +233,7 @@ class PayrollListCreateView(APIView):
 
 
 class PayrollDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
         payroll = get_object_or_404(Payroll, pk=pk)

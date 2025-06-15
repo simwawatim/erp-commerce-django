@@ -75,12 +75,24 @@ class Employee(models.Model):
     #         Employee.objects.create(user=instance, role='SALES', hourly_rate=0)
     #     elif hasattr(instance, 'employee'):
     #         instance.employee.save()
-
 class Payroll(models.Model):
+    STATUS_CHOICES = [
+        ('Paid', 'Paid'),
+        ('Pending', 'Pending'),
+        ('Processing', 'Processing'),
+        ('Cancelled', 'Cancelled'),
+    ]
+
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
-    hours_worked = models.DecimalField(max_digits=5, decimal_places=2)
+    bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    net_pay = models.DecimalField(max_digits=10, decimal_places=2)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     pay_date = models.DateField()
+
+    def __str__(self):
+        return f"{self.employee.name} - {self.pay_date}"
 
 # -------------------------------
 # Sales Module
