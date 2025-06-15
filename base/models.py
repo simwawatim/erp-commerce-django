@@ -84,12 +84,12 @@ class Payroll(models.Model):
     ]
 
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
-    bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    net_pay = models.DecimalField(max_digits=10, decimal_places=2)
-    total_paid = models.DecimalField(max_digits=10, decimal_places=2)
+    bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0,  blank=True, null=True)
+    deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0,  blank=True, null=True)
+    net_pay = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    total_paid = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
-    pay_date = models.DateField()
+    pay_date = models.DateField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.employee.name} - {self.pay_date}"

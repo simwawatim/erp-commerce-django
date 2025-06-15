@@ -43,12 +43,25 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
 
-
 class PayrollSerializer(serializers.ModelSerializer):
+    employee = EmployeeSerializer(read_only=True)
+    employee_id = serializers.PrimaryKeyRelatedField(
+        queryset=Employee.objects.all(), source='employee', write_only=True
+    )
+
     class Meta:
         model = Payroll
-        fields = '__all__'
-
+        fields = [
+            'id',
+            'employee',    
+            'employee_id',   
+            'bonus',
+            'deductions',
+            'net_pay',
+            'total_paid',
+            'status',
+            'pay_date'
+        ]
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
