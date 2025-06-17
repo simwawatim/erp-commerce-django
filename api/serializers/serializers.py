@@ -89,6 +89,17 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = '__all__'
 
+
+class SalesOrderCreateSerializer(serializers.ModelSerializer):
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(), source='product'
+    )
+
+    class Meta:
+        model = SalesOrder
+        fields = ['product_id', 'quantity']
+
+
 class SalesOrderSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
@@ -117,3 +128,14 @@ class FinancialTransactionSerializer(serializers.ModelSerializer):
         model = FinancialTransaction
         fields = '__all__'
 
+
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name']
+
+
+class GetEmployeeByNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name']

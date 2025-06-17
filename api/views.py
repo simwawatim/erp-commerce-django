@@ -1,6 +1,6 @@
 from django.http import Http404
 from base.models import Customer, SalesOrder, Product, InventoryTransaction, FinancialTransaction, Employee, Payroll, Product
-from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderSerializer, UserSerializer,  GetProductByNameSerializer
+from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, GetEmployeeByNameSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderCreateSerializer, SalesOrderSerializer, UserSerializer,  GetProductByNameSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
@@ -323,27 +323,32 @@ class SalesOrderAPIView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = SalesOrderSerializer(data=request.data)
-        if serializer.is_valid():
-            product = serializer.validated_data['product']
-            quantity = serializer.validated_data['quantity']
+            serializer = SalesOrderCreateSerializer(data=request.data)
+            if serializer.is_valid():
+                product = serializer.validated_data['product']  # Already a Product instance
+                quantity = serializer.validated_data['quantity']
 
-            if product.quantity < quantity:
-                return Response({"error": "Not enough stock"}, status=status.HTTP_400_BAD_REQUEST)
-            product.quantity -= quantity
-            product.save()
-            order = serializer.save()
+                if product.quantity < quantity:
+                    return Response({"error": "Not enough stock"}, status=status.HTTP_400_BAD_REQUEST)
 
-            FinancialTransaction.objects.create(
-                description=f"Sale: {product.name} x {quantity}",
-                amount=quantity * serializer.validated_data['price'],
-                module='Sales'
-            )
+                product.quantity -= quantity
+                product.save()
 
-            return Response(SalesOrderSerializer(order).data, status=status.HTTP_201_CREATED)
+                order = SalesOrder.objects.create(
+                    product=product,
+                    quantity=quantity,
+                    price=product.cost_per_unit 
+                )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                FinancialTransaction.objects.create(
+                    description=f"Sale: {product.name} x {quantity}",
+                    amount=quantity * product.cost_per_unit,
+                    module='Sales'
+                )
 
+                return Response(SalesOrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class SalesOrderDetailAPIView(APIView):
     def get(self, request, pk):
@@ -404,7 +409,13 @@ class ExpenseAPIView(APIView):
         expense = FinancialTransaction.objects.exclude(module__iexact='sales').aggregate(
             total_expense=Sum('amount')
         )['total_expense'] or 0
-        return Response({"expenses": expense}, status=status.HTTP_200_OK)
+        payroll_expense = Payroll.objects.filter(status='Paid').aggregate(
+            total_payroll=Sum('total_paid')
+        )['total_payroll'] or 0
+
+        total_expense = expense + payroll_expense
+
+        return Response({"expenses": total_expense}, status=status.HTTP_200_OK)
 
 
 class ProfitAPIView(APIView):
@@ -413,9 +424,26 @@ class ProfitAPIView(APIView):
             total_revenue=Sum('amount')
         )['total_revenue'] or 0
 
-        expenses = FinancialTransaction.objects.exclude(module__iexact='sales').aggregate(
+        expense = FinancialTransaction.objects.exclude(module__iexact='sales').aggregate(
             total_expense=Sum('amount')
         )['total_expense'] or 0
 
-        profit = revenue - expenses
+        payroll_expense = Payroll.objects.filter(status='Paid').aggregate(
+            total_payroll=Sum('total_paid')
+        )['total_payroll'] or 0
+
+        total_expense = expense + payroll_expense
+        profit = revenue - total_expense
+
         return Response({"profit": profit}, status=status.HTTP_200_OK)
+class GetProductByName(APIView):
+    def get(self, request):
+        products = Product.objects.all() 
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+    
+class GetEmployeeByNameView(APIView):
+    def get(self, request):
+        users = User.objects.all()
+        serializers = GetEmployeeByNameSerializer(users, many=True)
+        return Response(serializers.data)
