@@ -13,7 +13,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Employee
-        fields = ['id', 'user', 'role', 'hourly_rate']
+        fields = ['id', 'user', 'role']
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')
@@ -28,7 +28,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
             if user_serializer.is_valid(raise_exception=True):
                 user_serializer.save()
         instance.role = validated_data.get('role', instance.role)
-        instance.hourly_rate = validated_data.get('hourly_rate', instance.hourly_rate)
         instance.save()
         return instance
     
@@ -132,7 +131,7 @@ class FinancialTransactionSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'description', 'quantity', 'cost_per_unit', 'is_available', 'created_at', 'updated_at']
 
 
 class GetEmployeeByNameSerializer(serializers.ModelSerializer):

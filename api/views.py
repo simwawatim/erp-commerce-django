@@ -99,7 +99,7 @@ class EmployeeDetailView(APIView):
         employee = self.get_object(pk)
         user_data = request.data.get('user')
         role = request.data.get('role')
-        hourly_rate = request.data.get('hourly_rate')
+  
 
         # Validate user_data presence and type
         if not user_data or not isinstance(user_data, dict):
@@ -114,8 +114,7 @@ class EmployeeDetailView(APIView):
         # Validate role and hourly_rate presence
         if not role:
             return Response({'error': 'Role is required'}, status=status.HTTP_400_BAD_REQUEST)
-        if hourly_rate is None:
-            return Response({'error': 'Hourly rate is required'}, status=status.HTTP_400_BAD_REQUEST)
+       
 
         # Update User
         user_serializer = UserSerializer(employee.user, data=user_data)
@@ -126,7 +125,6 @@ class EmployeeDetailView(APIView):
 
         # Update Employee
         employee.role = role
-        employee.hourly_rate = hourly_rate
         employee.save()
 
         return Response(EmployeeSerializer(employee).data)

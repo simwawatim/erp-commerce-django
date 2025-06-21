@@ -64,7 +64,7 @@ class Employee(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    hourly_rate = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
+
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
