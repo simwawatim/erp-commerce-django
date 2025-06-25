@@ -51,7 +51,6 @@ class EmployeeListCreateView(APIView):
     def post(self, request):
         user_data = request.data.get('user')
         role = request.data.get('role')
-        hourly_rate = request.data.get('hourly_rate')
 
         # Validate user_data presence and type
         if not user_data or not isinstance(user_data, dict):
@@ -66,8 +65,7 @@ class EmployeeListCreateView(APIView):
         # Validate role and hourly_rate
         if not role:
             return Response({'error': 'Role is required'}, status=status.HTTP_400_BAD_REQUEST)
-        if hourly_rate is None:
-            return Response({'error': 'Hourly rate is required'}, status=status.HTTP_400_BAD_REQUEST)
+
 
         # Serialize and create User
         user_serializer = UserSerializer(data=user_data)
@@ -76,7 +74,6 @@ class EmployeeListCreateView(APIView):
             employee = Employee.objects.create(
                 user=user,
                 role=role,
-                hourly_rate=hourly_rate
             )
             return Response(EmployeeSerializer(employee).data, status=status.HTTP_201_CREATED)
 
@@ -133,7 +130,7 @@ class EmployeeDetailView(APIView):
         employee = self.get_object(pk)
         user_data = request.data.get('user', {})
         role = request.data.get('role', employee.role)
-        hourly_rate = request.data.get('hourly_rate', employee.hourly_rate)
+
 
         # Update User (partial)
         user_serializer = UserSerializer(employee.user, data=user_data, partial=True)
@@ -144,7 +141,6 @@ class EmployeeDetailView(APIView):
 
         # Update Employee
         employee.role = role
-        employee.hourly_rate = hourly_rate
         employee.save()
 
         return Response(EmployeeSerializer(employee).data)
@@ -226,6 +222,7 @@ class PayrollListCreateView(APIView):
         serializer = PayrollSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
+            # FinancialTransaction.objects.create(description=f"Pay For: {serializer.employee.f}", amount=serializer.total_paid, module='Payroll')
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

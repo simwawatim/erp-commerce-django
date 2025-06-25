@@ -69,12 +69,6 @@ class Employee(models.Model):
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_role_display()})"
 
-    # @receiver(post_save, sender=User)
-    # def manage_employee_profile(sender, instance, created, **kwargs):
-    #     if created:
-    #         Employee.objects.create(user=instance, role='SALES', hourly_rate=0)
-    #     elif hasattr(instance, 'employee'):
-    #         instance.employee.save()
 class Payroll(models.Model):
     STATUS_CHOICES = [
         ('Paid', 'Paid'),
@@ -83,7 +77,7 @@ class Payroll(models.Model):
         ('Cancelled', 'Cancelled'),
     ]
 
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0,  blank=True, null=True)
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0,  blank=True, null=True)
     net_pay = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
