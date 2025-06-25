@@ -77,7 +77,7 @@ class Payroll(models.Model):
         ('Cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     bonus = models.DecimalField(max_digits=10, decimal_places=2, default=0,  blank=True, null=True)
     deductions = models.DecimalField(max_digits=10, decimal_places=2, default=0,  blank=True, null=True)
     net_pay = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
