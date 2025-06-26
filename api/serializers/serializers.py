@@ -13,7 +13,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Employee
-        fields = ['id', 'user', 'role']
+        fields = ['id', 'user', 'role', 'profile_picture']
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')
@@ -144,4 +144,9 @@ class GetEmployeeByNameSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    pass
+    employee = EmployeeSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'employee']
+

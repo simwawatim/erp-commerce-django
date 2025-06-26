@@ -1,6 +1,6 @@
 from django.http import Http404
 from base.models import Customer, SalesOrder, Product, InventoryTransaction, FinancialTransaction, Employee, Payroll, Product
-from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, GetEmployeeByNameSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderCreateSerializer, SalesOrderSerializer, UserSerializer,  GetProductByNameSerializer
+from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, GetEmployeeByNameSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderCreateSerializer, SalesOrderSerializer, UserProfileSerializer, UserSerializer,  GetProductByNameSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
@@ -442,3 +442,12 @@ class GetEmployeeByNameView(APIView):
         users = User.objects.all()
         serializers = GetEmployeeByNameSerializer(users, many=True)
         return Response(serializers.data)
+    
+
+class GetEmployeeProfileView(APIView):
+    def get(self, request, pk):
+        user = get_object_or_404(User.objects.select_related('employee'), pk=pk)
+        serializer = UserProfileSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
