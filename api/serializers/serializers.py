@@ -150,3 +150,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'username', 'first_name', 'last_name', 'email', 'employee']
 
+    def update(self, instance, validated_data):
+        profile_picture = validated_data.pop('profile_picture', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if profile_picture and hasattr(instance, 'employee'):
+            instance.employee.profile_picture = profile_picture
+            instance.employee.save()
+
+        return instance
+

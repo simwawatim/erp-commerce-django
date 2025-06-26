@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import authenticate
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth.models import User
 from base.models import Employee
 from django.db import transaction
@@ -444,10 +445,19 @@ class GetEmployeeByNameView(APIView):
         return Response(serializers.data)
     
 
+
 class GetEmployeeProfileView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
     def get(self, request, pk):
-        user = get_object_or_404(User.objects.select_related('employee'), pk=pk)
+        user = get_object_or_404(User, pk=pk)
         serializer = UserProfileSerializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    
+        return Response(serializer.data)
+
+    def patch(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        serializer = UserProfileSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
