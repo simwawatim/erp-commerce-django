@@ -37,10 +37,24 @@ class GetProductByNameSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['name']
     
+
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = [
+            'id',
+            'name',
+            'description',
+            'quantity',
+            'cost_per_unit',
+            'is_available',
+            'image',
+            'created_at',
+            'updated_at',
+            'created_by',
+            'updated_by',
+        ]
+
 
 class PayrollSerializer(serializers.ModelSerializer):
     employee = EmployeeSerializer(read_only=True)
