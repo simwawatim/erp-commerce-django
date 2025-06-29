@@ -144,12 +144,6 @@ class FinancialTransactionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class ProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = ['id', 'name', 'description', 'quantity', 'cost_per_unit', 'is_available', 'created_at', 'updated_at']
-
-
 class GetEmployeeByNameSerializer(serializers.ModelSerializer):
     employee = EmployeeSerializer(read_only=True)
     class Meta:
