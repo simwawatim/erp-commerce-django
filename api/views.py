@@ -1,3 +1,4 @@
+import random
 from django.http import Http404
 from base.models import Customer, SalesOrder, Product, InventoryTransaction, FinancialTransaction, Employee, Payroll, Product
 from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, GetEmployeeByNameSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderCreateSerializer, SalesOrderSerializer, UserProfileSerializer, UserSerializer,  GetProductByNameSerializer
@@ -15,11 +16,14 @@ from base.models import Employee
 from django.db import transaction
 from rest_framework import generics
 from django.db.models import Sum
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 # -------------------------------
 # Authentication and Authorization
 # -------------------------------
+
 
 class LoginView(APIView):
     authentication_classes = [] 
@@ -32,12 +36,24 @@ class LoginView(APIView):
 
         if user:
             refresh = RefreshToken.for_user(user)
+            try:
+                role = user.employee.role
+            except:
+                role = 'unknown'  
+
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'role': role
+                }
             })
 
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
     
 
 class EmployeeListCreateView(APIView):
@@ -48,34 +64,44 @@ class EmployeeListCreateView(APIView):
         employees = Employee.objects.select_related('user').all()
         serializer = EmployeeSerializer(employees, many=True)
         return Response(serializer.data)
-
+    
     def post(self, request):
         user_data = request.data.get('user')
         role = request.data.get('role')
 
-        # Validate user_data presence and type
         if not user_data or not isinstance(user_data, dict):
             return Response({'error': 'User data is required and must be a dictionary'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate all user fields are present and non-empty
         required_user_fields = ['username', 'first_name', 'last_name', 'email']
         for field in required_user_fields:
             if not user_data.get(field):
                 return Response({'error': 'All user fields are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate role and hourly_rate
         if not role:
             return Response({'error': 'Role is required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        random_password = str(random.randint(1000, 9999))
+        user_data['password'] = random_password
 
-        # Serialize and create User
         user_serializer = UserSerializer(data=user_data)
         if user_serializer.is_valid():
             user = user_serializer.save()
-            employee = Employee.objects.create(
-                user=user,
-                role=role,
-            )
+
+
+            user.set_password(random_password)
+            user.save()
+            employee = Employee.objects.create(user=user, role=role)
+            try:
+                send_mail(
+                    subject="Your Account Credentials",
+                    message=f"Hello {user.first_name},\n\nYour account has been created.\nUsername: {user.username}\nPassword: {random_password}",
+                    from_email=settings.EMAIL_HOST_USER,  
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                return Response({'error': f'User created, but failed to send email: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             return Response(EmployeeSerializer(employee).data, status=status.HTTP_201_CREATED)
 
         return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
