@@ -18,6 +18,9 @@ from rest_framework import generics
 from django.db.models import Sum
 from django.core.mail import send_mail
 from django.conf import settings
+from django.utils.timezone import now
+from django.db.models import Count, Sum
+from datetime import timedelta
 
 
 # -------------------------------
@@ -487,3 +490,69 @@ class GetEmployeeProfileView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class DashboardStatsAPIView(APIView):
+
+    def get(self, request):
+        # HR: Employee count by role
+        employee_by_role = (
+            Employee.objects.values('role')
+            .annotate(count=Count('id'))
+            .order_by('role')
+        )
+
+        # Payroll: status distribution
+        payroll_statuses = (
+            Payroll.objects.values('status')
+            .annotate(count=Count('id'))
+            .order_by('status')
+        )
+
+        # Payroll: last 6 months net_pay totals
+        six_months_ago = now() - timedelta(days=180)
+        payroll_totals = (
+            Payroll.objects.filter(pay_date__gte=six_months_ago)
+            .extra(select={'month': "strftime('%%Y-%%m', pay_date)"})
+            .values('month')
+            .annotate(total=Sum('net_pay'))
+            .order_by('month')
+        )
+
+        # Finance: total per module
+        finance_modules = (
+            FinancialTransaction.objects.values('module')
+            .annotate(total=Sum('amount'))
+            .order_by('module')
+        )
+
+        # Sales: total revenue per product
+        sales_totals = (
+            SalesOrder.objects.values('product__name')
+            .annotate(total=Sum('price'))
+            .order_by('-total')[:5]
+        )
+
+        # Inventory: total available products
+        inventory_summary = {
+            'total_products': Product.objects.count(),
+            'available_products': Product.objects.filter(is_available=True).count()
+        }
+
+        # Overall system summary
+        summary = {
+            'total_employees': Employee.objects.count(),
+            'total_products': Product.objects.count(),
+            'total_sales': SalesOrder.objects.aggregate(Sum('price'))['price__sum'] or 0,
+            'total_financial_activity': FinancialTransaction.objects.aggregate(Sum('amount'))['amount__sum'] or 0,
+        }
+
+        return Response({
+            'hr': list(employee_by_role),
+            'payroll_status': list(payroll_statuses),
+            'payroll_trends': list(payroll_totals),
+            'finance': list(finance_modules),
+            'sales': list(sales_totals),
+            'inventory': inventory_summary,
+            'summary': summary,
+        })

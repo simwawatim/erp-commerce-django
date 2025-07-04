@@ -2,7 +2,7 @@ from django.urls import path
 from base import views
 from api.views import LoginView, PayrollDetailView, PayrollListCreateView, ProductDetailView, ProductListCreateView
 from .views import (
-    CustomerListCreateView, CustomerDetailView,  EmployeeListCreateView, EmployeeDetailView, ExpenseAPIView, FinancialTransactionDetail, FinancialTransactionList, GetEmployeeByNameView, GetEmployeeProfileView, GetProductByName, ProfitAPIView, RevenueAPIView, SalesOrderAPIView, SalesOrderDetailAPIView,
+    CustomerListCreateView, CustomerDetailView, DashboardStatsAPIView,  EmployeeListCreateView, EmployeeDetailView, ExpenseAPIView, FinancialTransactionDetail, FinancialTransactionList, GetEmployeeByNameView, GetEmployeeProfileView, GetProductByName, ProfitAPIView, RevenueAPIView, SalesOrderAPIView, SalesOrderDetailAPIView,
 
 )
 
@@ -10,10 +10,10 @@ urlpatterns = [
     
 #    path('api/financial-transactions/<int:pk>/', FinancialTransactionDetailView.as_view()),
 #    path('api/inventory-transactions/<int:pk>/', InventoryTransactionDetailView.as_view()),
-    path('api/employees/', EmployeeListCreateView.as_view(), name='employee-list-create'),
-    path('api/employees/<int:pk>/', EmployeeDetailView.as_view(), name='employee-detail'),
-    path('api/products/', ProductListCreateView.as_view(), name='product-list-create'),
-    path('api/products/<int:pk>/', ProductDetailView.as_view(), name='product-detail'),
+    path('api/employees/', EmployeeListCreateView.as_view()),
+    path('api/employees/<int:pk>/', EmployeeDetailView.as_view()),
+    path('api/products/', ProductListCreateView.as_view()),
+    path('api/products/<int:pk>/', ProductDetailView.as_view()),
     path('api/payrolls/', PayrollListCreateView.as_view(), name='payroll-list-create'),
     path('api/payrolls/<int:pk>/', PayrollDetailView.as_view(), name='payroll-detail'),
     #    path('api/inventory-transactions/', InventoryTransactionListCreateView.as_view()),
@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/get-product-by-name/', GetProductByName.as_view()),
     path('api/get-employee-by-name/', GetEmployeeByNameView.as_view()),
     path('api/profile/<int:pk>/', GetEmployeeProfileView.as_view()),
+    path('api/dashboard-stats/', DashboardStatsAPIView.as_view()),
 
    
 ]
