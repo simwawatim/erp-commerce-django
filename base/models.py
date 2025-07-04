@@ -93,6 +93,7 @@ class Payroll(models.Model):
 class Customer(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField()
+    address = models.TextField(blank=True, null=True)
 
 
     def __str__(self):
