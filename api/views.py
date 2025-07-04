@@ -559,23 +559,16 @@ class DashboardStatsAPIView(APIView):
         })
     
 
-
 class BuyProducts(APIView):
     def post(self, request):
         try:
-            product_id = request.data.get('product_id')
-            quantity = int(request.data.get('quantity', 1))
-
+            items = request.data.get('items', [])
             full_name = request.data.get('name')
             email = request.data.get('email')
             address = request.data.get('address')
 
-            product = Product.objects.get(id=product_id)
-
-            if product.quantity < quantity:
-                return Response({"error": "Not enough product in stock."}, status=status.HTTP_400_BAD_REQUEST)
-
-            total_price = Decimal(product.cost_per_unit) * quantity
+            if not items:
+                return Response({"error": "No items provided."}, status=status.HTTP_400_BAD_REQUEST)
 
             if request.user.is_authenticated:
                 customer, _ = Customer.objects.get_or_create(
@@ -586,37 +579,72 @@ class BuyProducts(APIView):
                 if not full_name or not email or not address:
                     return Response({"error": "Guest checkout requires name, email, and address."},
                                     status=status.HTTP_400_BAD_REQUEST)
-                customer, _ = Customer.objects.get_or_create(
+                customer, created = Customer.objects.get_or_create(
                     email=email,
-                    defaults={'name': full_name}
+                    defaults={'name': full_name, 'address': address}
+                )
+                if not created and not customer.address:
+                    customer.address = address
+                    customer.save()
+
+            total_order_price = Decimal('0.00')
+            sales_orders = []
+
+            for item in items:
+                product_id = item.get('product_id')
+                quantity = item.get('quantity', 1)
+
+                try:
+                    quantity = int(quantity)
+                    if quantity <= 0:
+                        return Response({"error": f"Invalid quantity for product {product_id}."},
+                                        status=status.HTTP_400_BAD_REQUEST)
+                except (ValueError, TypeError):
+                    return Response({"error": f"Invalid quantity for product {product_id}."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+
+                try:
+                    product = Product.objects.get(id=product_id)
+                except Product.DoesNotExist:
+                    return Response({"error": f"Product with ID {product_id} not found."},
+                                    status=status.HTTP_404_NOT_FOUND)
+
+                if not product.quantity or product.quantity < quantity:
+                    return Response({"error": f"Not enough stock for product {product.name}."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+
+                total_price = Decimal(product.cost_per_unit or 0) * quantity
+                total_order_price += total_price
+
+                sales_order = SalesOrder.objects.create(
+                    product=product,
+                    quantity=quantity,
+                    price=total_price,
+                    customer=customer,
+                    shipping_address=address if not request.user.is_authenticated else customer.address
                 )
 
-            # Create sales order
-            sales_order = SalesOrder.objects.create(
-                product=product,
-                quantity=quantity,
-                price=total_price,
-                customer=customer
-            )
+                product.quantity -= quantity
+                product.save()
 
-            # Update product stock
-            product.quantity -= quantity
-            product.save()
+                FinancialTransaction.objects.create(
+                    description=f"Sold {quantity} x {product.name} to {customer.name}",
+                    amount=total_price,
+                    module="Sales"
+                )
 
-            # Log financial transaction
-            FinancialTransaction.objects.create(
-                description=f"Sold {quantity} x {product.name} to {customer.name}",
-                amount=total_price,
-                module="Sales"
-            )
+                sales_orders.append({
+                    "order_id": sales_order.id,
+                    "product_name": product.name,
+                    "quantity": quantity,
+                    "total_price": f"{total_price:.2f}"
+                })
 
             return Response({
                 "message": "Purchase successful.",
-                "order_id": sales_order.id,
-                "total_price": f"{total_price:.2f}"
+                "total_order_price": f"{total_order_price:.2f}",
+                "orders": sales_orders
             }, status=status.HTTP_201_CREATED)
 
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

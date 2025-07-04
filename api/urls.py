@@ -2,7 +2,7 @@ from django.urls import path
 from base import views
 from api.views import LoginView, PayrollDetailView, PayrollListCreateView, ProductDetailView, ProductListCreateView
 from .views import (
-    CustomerListCreateView, CustomerDetailView, DashboardStatsAPIView,  EmployeeListCreateView, EmployeeDetailView, ExpenseAPIView, FinancialTransactionDetail, FinancialTransactionList, GetEmployeeByNameView, GetEmployeeProfileView, GetProductByName, ProfitAPIView, RevenueAPIView, SalesOrderAPIView, SalesOrderDetailAPIView,
+    BuyProducts, CustomerListCreateView, CustomerDetailView, DashboardStatsAPIView,  EmployeeListCreateView, EmployeeDetailView, ExpenseAPIView, FinancialTransactionDetail, FinancialTransactionList, GetEmployeeByNameView, GetEmployeeProfileView, GetProductByName, ProfitAPIView, RevenueAPIView, SalesOrderAPIView, SalesOrderDetailAPIView,
 
 )
 
@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/get-employee-by-name/', GetEmployeeByNameView.as_view()),
     path('api/profile/<int:pk>/', GetEmployeeProfileView.as_view()),
     path('api/dashboard-stats/', DashboardStatsAPIView.as_view()),
+    path('api/buy/', BuyProducts.as_view(), name='buy-products'),
 
    
 ]
