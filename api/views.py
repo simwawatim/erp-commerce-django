@@ -3,6 +3,7 @@ from django.http import Http404
 from base.models import Customer, SalesOrder, Product, InventoryTransaction, FinancialTransaction, Employee, Payroll, Product
 from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, GetEmployeeByNameSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderCreateSerializer, SalesOrderSerializer, UserProfileSerializer, UserSerializer,  GetProductByNameSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
@@ -10,7 +11,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import authenticate
 from rest_framework import status
-from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth.models import User
 from base.models import Employee
 from django.db import transaction
@@ -21,6 +21,7 @@ from django.conf import settings
 from django.utils.timezone import now
 from django.db.models import Count, Sum
 from datetime import timedelta
+from decimal import Decimal
 
 
 # -------------------------------
@@ -556,3 +557,66 @@ class DashboardStatsAPIView(APIView):
             'inventory': inventory_summary,
             'summary': summary,
         })
+    
+
+
+class BuyProducts(APIView):
+    def post(self, request):
+        try:
+            product_id = request.data.get('product_id')
+            quantity = int(request.data.get('quantity', 1))
+
+            full_name = request.data.get('name')
+            email = request.data.get('email')
+            address = request.data.get('address')
+
+            product = Product.objects.get(id=product_id)
+
+            if product.quantity < quantity:
+                return Response({"error": "Not enough product in stock."}, status=status.HTTP_400_BAD_REQUEST)
+
+            total_price = Decimal(product.cost_per_unit) * quantity
+
+            if request.user.is_authenticated:
+                customer, _ = Customer.objects.get_or_create(
+                    email=request.user.email,
+                    defaults={'name': request.user.get_full_name() or request.user.username}
+                )
+            else:
+                if not full_name or not email or not address:
+                    return Response({"error": "Guest checkout requires name, email, and address."},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                customer, _ = Customer.objects.get_or_create(
+                    email=email,
+                    defaults={'name': full_name}
+                )
+
+            # Create sales order
+            sales_order = SalesOrder.objects.create(
+                product=product,
+                quantity=quantity,
+                price=total_price,
+                customer=customer
+            )
+
+            # Update product stock
+            product.quantity -= quantity
+            product.save()
+
+            # Log financial transaction
+            FinancialTransaction.objects.create(
+                description=f"Sold {quantity} x {product.name} to {customer.name}",
+                amount=total_price,
+                module="Sales"
+            )
+
+            return Response({
+                "message": "Purchase successful.",
+                "order_id": sales_order.id,
+                "total_price": f"{total_price:.2f}"
+            }, status=status.HTTP_201_CREATED)
+
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -88,6 +88,16 @@ class Payroll(models.Model):
 
     def __str__(self):
         return f"{self.employee.name} - {self.pay_date}"
+    
+
+class Customer(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+
+
+    def __str__(self):
+        return self.name
+
 
 # -------------------------------
 # Sales Module
@@ -98,18 +108,13 @@ class SalesOrder(models.Model):
     quantity = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     date_ordered = models.DateTimeField(auto_now_add=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
 
 
 
 
 
 
-class Customer(models.Model):
-    name = models.CharField(max_length=100)
-    email = models.EmailField()
-
-    def __str__(self):
-        return self.name
 
 
 # -------------------------------
