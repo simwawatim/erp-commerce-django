@@ -20,6 +20,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.timezone import now
 from django.db.models import Count, Sum
+from django.db.models import Sum, F
 from datetime import timedelta
 from decimal import Decimal
 
@@ -648,3 +649,52 @@ class BuyProducts(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductSalesSummaryAPIView(APIView):
+    def get(self, request):
+        # Total products count
+        total_products = Product.objects.count()
+
+        # Total quantity in stock (sum of quantity field)
+        total_quantity = Product.objects.aggregate(total=Sum('quantity'))['total'] or 0
+
+        # Total sales amount (sum of quantity * price in SalesOrder)
+        total_sales_amount = SalesOrder.objects.aggregate(
+            total=Sum(F('quantity') * F('price'))
+        )['total'] or 0
+
+        # Pie chart data: top 5 products by sales amount
+        sales_by_product = (
+            SalesOrder.objects
+            .values('product__name')
+            .annotate(total_sales=Sum(F('quantity') * F('price')))
+            .order_by('-total_sales')[:5]
+        )
+        pie_chart = [
+            {"name": item['product__name'], "value": item['total_sales']}
+            for item in sales_by_product
+        ]
+
+        # Quarterly sales aggregation
+        quarters = {1: 0, 2: 0, 3: 0, 4: 0}
+        for order in SalesOrder.objects.all():
+            quarter = (order.date_ordered.month - 1) // 3 + 1
+            quarters[quarter] += order.quantity * order.price
+
+        bar_chart = [
+            {"name": f"Q{q}", "sales": amount}
+            for q, amount in sorted(quarters.items())
+        ]
+
+        data = {
+            "cards": [
+                {"label": "Total Products", "value": total_products},
+                {"label": "Total Quantity in Stock", "value": total_quantity},
+                {"label": "Total Sales Amount", "value": total_sales_amount},
+            ],
+            "pieChart": pie_chart,
+            "barChart": bar_chart,
+        }
+
+        return Response(data)

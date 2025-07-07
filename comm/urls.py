@@ -7,6 +7,7 @@ from comm import settings
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include("api.urls")),
+    path('ai/', include("ai.urls"))
     
 ]
 if settings.DEBUG:
