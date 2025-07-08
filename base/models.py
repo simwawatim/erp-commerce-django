@@ -91,10 +91,10 @@ class Payroll(models.Model):
     
 
 class Customer(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
     name = models.CharField(max_length=100)
     email = models.EmailField()
     address = models.TextField(blank=True, null=True)
-
 
     def __str__(self):
         return self.name
