@@ -1,22 +1,37 @@
 import numpy as np
-import json
 from sklearn.linear_model import LinearRegression
+from collections import defaultdict
+from base.models import Product, SalesOrder
 
 class ProductSalesPredictor:
-    def __init__(self, json_path="products_data.json"):
+    def __init__(self):
+        self.models = {}
         self.products = []
+        self._load_data_and_train()
+
+    def _load_data_and_train(self):
+
+        product_sales_map = defaultdict(list)
+
+        sales_qs = SalesOrder.objects.order_by('date_ordered').values('product_id', 'quantity')
+
+        for sale in sales_qs:
+            product_sales_map[sale['product_id']].append(sale['quantity'])
+        self.products = []
+        for product_id, sales in product_sales_map.items():
+            product = Product.objects.get(id=product_id)
+            self.products.append({
+                'id': product.id,
+                'name': product.name,
+                'sales': sales
+            })
+
+        self._train_models()
+
+    def _train_models(self):
         self.models = {}
-        self.json_path = json_path
-
-    def feed_data(self, products):
-        self.products = products
-        self.models = {}
-
-        # Save to JSON file
-        self._save_to_json(products)
-
-        for product in products:
-            sales = product.get("sales", [])
+        for product in self.products:
+            sales = product.get('sales', [])
             if len(sales) < 2:
                 continue
 
@@ -25,27 +40,22 @@ class ProductSalesPredictor:
 
             model = LinearRegression()
             model.fit(X, y)
-            self.models[product["id"]] = model
 
-    def _save_to_json(self, data):
-        try:
-            with open(self.json_path, "w") as f:
-                json.dump(data, f, indent=4)
-        except Exception as e:
-            print(f"Error saving to JSON: {e}")
+            self.models[product['id']] = model
 
     def predict_top_sellers(self, future_step=1, top_k=3):
         predictions = []
         for product in self.products:
-            model = self.models.get(product["id"])
+            model = self.models.get(product['id'])
             if model:
-                next_time = np.array([[len(product["sales"]) + future_step - 1]])
+                next_time = np.array([[len(product['sales']) + future_step - 1]])
                 predicted_sales = model.predict(next_time)[0][0]
+
                 predictions.append({
-                    "id": product["id"],
-                    "name": product["name"],
-                    "predicted_sales": round(predicted_sales, 2)
+                    'id': product['id'],
+                    'name': product['name'],
+                    'predicted_sales': round(predicted_sales, 2)
                 })
 
-        predictions.sort(key=lambda x: x["predicted_sales"], reverse=True)
+        predictions.sort(key=lambda x: x['predicted_sales'], reverse=True)
         return predictions[:top_k]
