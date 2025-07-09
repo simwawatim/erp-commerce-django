@@ -170,3 +170,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         return instance
 
+
+
+class RegisterSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField()
+    name = serializers.CharField()
+    address = serializers.CharField(required=False, allow_blank=True)
+
+    def create(self, validated_data):
+        # Create User
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data['email']
+        )
+        # Create Customer
+        customer = Customer.objects.create(
+            user=user,
+            name=validated_data['name'],
+            email=validated_data['email'],
+            address=validated_data.get('address', '')
+        )
+        return customer
+

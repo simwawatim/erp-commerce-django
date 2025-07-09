@@ -1,7 +1,7 @@
 import random
 from django.http import Http404
 from base.models import Customer, SalesOrder, Product, InventoryTransaction, FinancialTransaction, Employee, Payroll, Product
-from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, GetEmployeeByNameSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, SalesOrderCreateSerializer, SalesOrderSerializer, UserProfileSerializer, UserSerializer,  GetProductByNameSerializer
+from api.serializers.serializers import CustomerSerializer, EmployeeSerializer,FinancialTransactionSerializer, GetEmployeeByNameSerializer, InventoryTransactionSerializer, ProductSerializer, PayrollSerializer, RegisterSerializer, SalesOrderCreateSerializer, SalesOrderSerializer, UserProfileSerializer, UserSerializer,  GetProductByNameSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
@@ -31,8 +31,8 @@ from decimal import Decimal
 
 
 class LoginView(APIView):
-    authentication_classes = [] 
-    permission_classes = [AllowAny]  
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
         username = request.data.get('username')
@@ -41,10 +41,13 @@ class LoginView(APIView):
 
         if user:
             refresh = RefreshToken.for_user(user)
-            try:
-                role = user.employee.role
-            except:
-                role = 'unknown'  
+
+            role = 'unknown'
+
+            if hasattr(user, 'employee'):
+                role = user.employee.role if user.employee.role else 'employee'
+            elif hasattr(user, 'customer'):
+                role = 'customer'
 
             return Response({
                 'refresh': str(refresh),
@@ -698,3 +701,12 @@ class ProductSalesSummaryAPIView(APIView):
         }
 
         return Response(data)
+
+
+class RegisterView(APIView):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            customer = serializer.save()
+            return Response({"message": "Customer registered successfully"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
