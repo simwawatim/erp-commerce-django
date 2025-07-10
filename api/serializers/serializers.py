@@ -195,3 +195,9 @@ class RegisterSerializer(serializers.Serializer):
         )
         return customer
 
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ['id', 'name', 'email', 'address']

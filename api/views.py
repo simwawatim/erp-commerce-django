@@ -8,7 +8,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.exceptions import NotFound
 from django.contrib.auth import authenticate
 from rest_framework import status
 from django.contrib.auth.models import User
@@ -132,30 +133,23 @@ class EmployeeDetailView(APIView):
         user_data = request.data.get('user')
         role = request.data.get('role')
   
-
-        # Validate user_data presence and type
         if not user_data or not isinstance(user_data, dict):
             return Response({'error': 'User data is required and must be a dictionary'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Validate all user fields present and non-empty
         required_user_fields = ['username', 'first_name', 'last_name', 'email']
         for field in required_user_fields:
             if not user_data.get(field):
                 return Response({'error': 'All user fields are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate role and hourly_rate presence
         if not role:
             return Response({'error': 'Role is required'}, status=status.HTTP_400_BAD_REQUEST)
        
 
-        # Update User
         user_serializer = UserSerializer(employee.user, data=user_data)
         if user_serializer.is_valid():
             user_serializer.save()
         else:
             return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update Employee
         employee.role = role
         employee.save()
 
@@ -167,14 +161,12 @@ class EmployeeDetailView(APIView):
         role = request.data.get('role', employee.role)
 
 
-        # Update User (partial)
         user_serializer = UserSerializer(employee.user, data=user_data, partial=True)
         if user_serializer.is_valid():
             user_serializer.save()
         else:
             return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # Update Employee
+        
         employee.role = role
         employee.save()
 
@@ -563,6 +555,8 @@ class DashboardStatsAPIView(APIView):
         })
     
 
+
+
 class BuyProducts(APIView):
     def post(self, request):
         try:
@@ -575,74 +569,88 @@ class BuyProducts(APIView):
                 return Response({"error": "No items provided."}, status=status.HTTP_400_BAD_REQUEST)
 
             if request.user.is_authenticated:
-                customer, _ = Customer.objects.get_or_create(
-                    email=request.user.email,
-                    defaults={'name': request.user.get_full_name() or request.user.username}
-                )
+    
+                customer_qs = Customer.objects.filter(user=request.user)
+                if customer_qs.exists():
+                    customer = customer_qs.first()
+                else:
+                    customer = Customer.objects.create(
+                        user=request.user,
+                        name=request.user.get_full_name() or request.user.username,
+                        email=request.user.email,
+                        address=address or ""
+                    )
             else:
                 if not full_name or not email or not address:
                     return Response({"error": "Guest checkout requires name, email, and address."},
                                     status=status.HTTP_400_BAD_REQUEST)
-                customer, created = Customer.objects.get_or_create(
-                    email=email,
-                    defaults={'name': full_name, 'address': address}
-                )
-                if not created and not customer.address:
-                    customer.address = address
-                    customer.save()
+                customer_qs = Customer.objects.filter(email=email)
+                if customer_qs.exists():
+                    customer = customer_qs.first()
+                    if not customer.address and address:
+                        customer.address = address
+                        customer.save()
+                else:
+                    customer = Customer.objects.create(
+                        name=full_name,
+                        email=email,
+                        address=address
+                    )
 
             total_order_price = Decimal('0.00')
             sales_orders = []
 
-            for item in items:
-                product_id = item.get('product_id')
-                quantity = item.get('quantity', 1)
+            # Use atomic transaction to ensure consistency
+            with transaction.atomic():
+                for item in items:
+                    product_id = item.get('product_id')
+                    quantity = item.get('quantity', 1)
 
-                try:
-                    quantity = int(quantity)
-                    if quantity <= 0:
+                    try:
+                        quantity = int(quantity)
+                        if quantity <= 0:
+                            return Response({"error": f"Invalid quantity for product {product_id}."},
+                                            status=status.HTTP_400_BAD_REQUEST)
+                    except (ValueError, TypeError):
                         return Response({"error": f"Invalid quantity for product {product_id}."},
                                         status=status.HTTP_400_BAD_REQUEST)
-                except (ValueError, TypeError):
-                    return Response({"error": f"Invalid quantity for product {product_id}."},
-                                    status=status.HTTP_400_BAD_REQUEST)
 
-                try:
-                    product = Product.objects.get(id=product_id)
-                except Product.DoesNotExist:
-                    return Response({"error": f"Product with ID {product_id} not found."},
-                                    status=status.HTTP_404_NOT_FOUND)
+                    try:
+                        product = Product.objects.select_for_update().get(id=product_id)
+                    except Product.DoesNotExist:
+                        return Response({"error": f"Product with ID {product_id} not found."},
+                                        status=status.HTTP_404_NOT_FOUND)
 
-                if not product.quantity or product.quantity < quantity:
-                    return Response({"error": f"Not enough stock for product {product.name}."},
-                                    status=status.HTTP_400_BAD_REQUEST)
+                    if not product.quantity or product.quantity < quantity:
+                        return Response({"error": f"Not enough stock for product {product.name}."},
+                                        status=status.HTTP_400_BAD_REQUEST)
 
-                total_price = Decimal(product.cost_per_unit or 0) * quantity
-                total_order_price += total_price
+                    total_price = Decimal(product.cost_per_unit or 0) * quantity
+                    total_order_price += total_price
 
-                sales_order = SalesOrder.objects.create(
-                    product=product,
-                    quantity=quantity,
-                    price=total_price,
-                    customer=customer,
-                    shipping_address=address if not request.user.is_authenticated else customer.address
-                )
+                    sales_order = SalesOrder.objects.create(
+                        product=product,
+                        quantity=quantity,
+                        price=total_price,
+                        customer=customer,
+                        shipping_address=address if not request.user.is_authenticated else customer.address
+                    )
 
-                product.quantity -= quantity
-                product.save()
+                    product.quantity -= quantity
+                    product.save()
 
-                FinancialTransaction.objects.create(
-                    description=f"Sold {quantity} x {product.name} to {customer.name}",
-                    amount=total_price,
-                    module="Sales"
-                )
+                    FinancialTransaction.objects.create(
+                        description=f"Sold {quantity} x {product.name} to {customer.name}",
+                        amount=total_price,
+                        module="Sales"
+                    )
 
-                sales_orders.append({
-                    "order_id": sales_order.id,
-                    "product_name": product.name,
-                    "quantity": quantity,
-                    "total_price": f"{total_price:.2f}"
-                })
+                    sales_orders.append({
+                        "order_id": sales_order.id,
+                        "product_name": product.name,
+                        "quantity": quantity,
+                        "total_price": f"{total_price:.2f}"
+                    })
 
             return Response({
                 "message": "Purchase successful.",
@@ -652,6 +660,7 @@ class BuyProducts(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class ProductSalesSummaryAPIView(APIView):
@@ -710,3 +719,17 @@ class RegisterView(APIView):
             customer = serializer.save()
             return Response({"message": "Customer registered successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class UserCustomerAPIView(APIView):
+    serializer_class = CustomerSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs): 
+        try:
+            customer = Customer.objects.get(user=request.user)
+        except Customer.DoesNotExist:
+            return Response({"detail": "Customer not found for this user"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.serializer_class(customer)
+        return Response(serializer.data)

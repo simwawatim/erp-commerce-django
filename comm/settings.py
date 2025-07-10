@@ -144,3 +144,9 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'landernerd4@gmail.com'
 EMAIL_HOST_PASSWORD = 'ojduiztpldjszuwy'
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+CORS_ALLOW_CREDENTIALS = True
