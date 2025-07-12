@@ -179,14 +179,22 @@ class RegisterSerializer(serializers.Serializer):
     name = serializers.CharField()
     address = serializers.CharField(required=False, allow_blank=True)
 
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username is already taken.")
+        return value
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email is already registered.")
+        return value
+
     def create(self, validated_data):
-        # Create User
         user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
             email=validated_data['email']
         )
-        # Create Customer
         customer = Customer.objects.create(
             user=user,
             name=validated_data['name'],
@@ -194,6 +202,7 @@ class RegisterSerializer(serializers.Serializer):
             address=validated_data.get('address', '')
         )
         return customer
+
 
 
 
