@@ -54,8 +54,6 @@ class FinancialTransaction(models.Model):
 
 class Employee(models.Model):
     ROLE_CHOICES = [
-        ('MANUFACTURING', 'Manufacturing Staff'),
-        ('SERVICE', 'Service Staff'),
         ('HR', 'HR'),
         ('FINANCE', 'Finance'),
         ('SALES', 'Sales'),

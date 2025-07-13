@@ -733,3 +733,32 @@ class UserCustomerAPIView(APIView):
 
         serializer = self.serializer_class(customer)
         return Response(serializer.data)
+    
+
+
+class EmployeeSummaryAPIView(APIView):
+    def get(self, request):
+        role_counts = (
+            Employee.objects
+            .values('role')
+            .annotate(count=Count('id'))
+            .order_by('role')
+        )
+        
+        roles = dict(Employee.ROLE_CHOICES)
+        data = {role: 0 for role in roles.keys()}
+        
+        for item in role_counts:
+            data[item['role']] = item['count']
+        
+        # Prepare labels and counts for graph
+        labels = [roles[role] for role in data.keys()]
+        counts = list(data.values())
+        
+        return Response({
+            "totals": data,  
+            "graph": {
+                "labels": labels,
+                "counts": counts
+            }
+        })
