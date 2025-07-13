@@ -30,7 +30,6 @@ from decimal import Decimal
 # Authentication and Authorization
 # -------------------------------
 
-
 class LoginView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -45,9 +44,10 @@ class LoginView(APIView):
 
             role = 'unknown'
 
-            if hasattr(user, 'employee'):
+
+            if hasattr(user, 'employee') and user.employee is not None:
                 role = user.employee.role if user.employee.role else 'employee'
-            elif hasattr(user, 'customer'):
+            elif hasattr(user, 'customer') and user.customer is not None:
                 role = 'customer'
 
             return Response({

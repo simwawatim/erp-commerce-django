@@ -5,7 +5,7 @@ from .views import (
     BuyProducts, CustomerListCreateView, CustomerDetailView, DashboardStatsAPIView,  EmployeeListCreateView, EmployeeDetailView, ExpenseAPIView, FinancialTransactionDetail, FinancialTransactionList, GetEmployeeByNameView, GetEmployeeProfileView, GetProductByName, ProductSalesSummaryAPIView, ProfitAPIView, RegisterView, RevenueAPIView, SalesOrderAPIView, SalesOrderDetailAPIView, UserCustomerAPIView,
 
 )
-
+from chatbot import main
 urlpatterns = [
     
     path('api/employees/', EmployeeListCreateView.as_view()),
@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/product-sales-summary/', ProductSalesSummaryAPIView.as_view()),
     path('api/register/', RegisterView.as_view()),
     path('api/customer/', UserCustomerAPIView.as_view(), ),
+    path('api/chat/', main.FAQChatbotView.as_view(), name='faq-chatbot'),
 
    
 ]
