@@ -30,6 +30,7 @@ from datetime import timedelta
 from django.db.models.functions import TruncMonth
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.db.models import Sum, Count, Q
 
 
 
@@ -810,3 +811,41 @@ class SalesSummaryAPIView(APIView):
             }
         }
         return Response(data)
+    
+class FinanceSummaryAPI(APIView):
+    def get(self, request):
+        total_income = FinancialTransaction.objects.filter(amount__gt=0).aggregate(total=Sum('amount'))['total'] or 0
+        total_expense = FinancialTransaction.objects.filter(amount__lt=0).aggregate(total=Sum('amount'))['total'] or 0
+        total_expense = abs(total_expense) 
+
+        six_months_ago = now().replace(day=1)
+        monthly_qs = (
+            FinancialTransaction.objects
+            .filter(timestamp__gte=six_months_ago)
+            .annotate(month=TruncMonth('timestamp'))
+            .values('month')
+            .annotate(
+                income=Sum('amount', filter=Q(amount__gt=0)),
+                expense=Sum('amount', filter=Q(amount__lt=0))
+            )
+            .order_by('month')
+        )
+
+        labels = []
+        incomes = []
+        expenses = []
+
+        for item in monthly_qs:
+            labels.append(item['month'].strftime('%b %Y'))
+            incomes.append(float(item['income'] or 0))
+            expenses.append(abs(float(item['expense'] or 0)))
+
+        return Response({
+            'total_income': total_income,
+            'total_expense': total_expense,
+            'monthly_data': {
+                'labels': labels,
+                'income': incomes,
+                'expense': expenses,
+            }
+        })
