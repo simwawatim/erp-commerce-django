@@ -2,7 +2,7 @@ from django.urls import path
 from base import views
 from api.views import LoginView, PayrollDetailView, PayrollListCreateView, ProductDetailView, ProductListCreateView
 from .views import (
-    BuyProducts, CustomerListCreateView, CustomerDetailView, DashboardStatsAPIView,  EmployeeListCreateView, EmployeeDetailView, EmployeeSummaryAPIView, ExpenseAPIView, FinancialTransactionDetail, FinancialTransactionList, GetEmployeeByNameView, GetEmployeeProfileView, GetProductByName, ProductSalesSummaryAPIView, ProfitAPIView, RegisterView, RevenueAPIView, SalesOrderAPIView, SalesOrderDetailAPIView, UserCustomerAPIView,
+    BuyProducts, CustomerListCreateView, CustomerDetailView, DashboardStatsAPIView,  EmployeeListCreateView, EmployeeDetailView, EmployeeSummaryAPIView, ExpenseAPIView, FinancialTransactionDetail, FinancialTransactionList, GetEmployeeByNameView, GetEmployeeProfileView, GetProductByName, ProductSalesSummaryAPIView, ProfitAPIView, RegisterView, RevenueAPIView, SalesOrderAPIView, SalesOrderDetailAPIView, SalesSummaryAPIView, UserCustomerAPIView,
 
 )
 from chatbot import main
@@ -34,6 +34,7 @@ urlpatterns = [
     path('api/customer/', UserCustomerAPIView.as_view(), ),
     path('api/chat/', main.FAQChatbotView.as_view(), name='faq-chatbot'),
     path('api/employee-summary/', EmployeeSummaryAPIView.as_view(), name='employee-summary'),
+    path('api/sales-summary/', SalesSummaryAPIView.as_view(), name='sales-summary'),
 
    
 ]

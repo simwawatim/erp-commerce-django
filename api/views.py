@@ -24,6 +24,13 @@ from django.db.models import Count, Sum
 from django.db.models import Sum, F
 from datetime import timedelta
 from decimal import Decimal
+from django.db.models import Sum, Count, F
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models.functions import TruncMonth
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
 
 
 # -------------------------------
@@ -762,3 +769,44 @@ class EmployeeSummaryAPIView(APIView):
                 "counts": counts
             }
         })
+    
+
+class SalesSummaryAPIView(APIView):
+    def get(self, request):
+        now = timezone.now()
+        five_months_ago = (now - timedelta(days=150)).replace(day=1)
+
+        total_sales_agg = SalesOrder.objects.aggregate(
+            total_sales=Sum(F('price') * F('quantity'))
+        )
+        total_sales = total_sales_agg['total_sales'] or 0
+
+        total_orders = SalesOrder.objects.count()
+        two_days_ago = now - timedelta(days=2)
+        pending_orders = SalesOrder.objects.filter(date_ordered__gte=two_days_ago).count()
+
+        monthly_sales_qs = (
+            SalesOrder.objects
+            .filter(date_ordered__gte=five_months_ago)
+            .annotate(month=TruncMonth('date_ordered'))
+            .values('month')
+            .annotate(total=Sum(F('price') * F('quantity')))
+            .order_by('month')
+        )
+        months = []
+        for i in range(4, -1, -1):
+            m = (now - timedelta(days=30*i)).strftime("%b %Y")
+            months.append(m)
+        sales_by_month = {entry['month'].strftime("%b %Y"): float(entry['total'] or 0) for entry in monthly_sales_qs}
+        monthly_sales = [sales_by_month.get(month, 0) for month in months]
+
+        data = {
+            "total_sales": total_sales,
+            "total_orders": total_orders,
+            "pending_orders": pending_orders,
+            "monthly_sales": {
+                "labels": months,
+                "data": monthly_sales,
+            }
+        }
+        return Response(data)
